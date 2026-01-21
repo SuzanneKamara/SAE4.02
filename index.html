@@ -7,7 +7,13 @@
     <title>SAE4.02 - Archery XR</title>
   </head>
   <body>
-    <a-scene>
+    <!-- State management avec aframe-state-component -->
+    <a-scene 
+      physics="driver: ammo; debug: false; gravity: 0 -9.81 0"
+      state="score: 0; combo: 0; multiplier: 1.0; gameStarted: false"
+      webxr="requiredFeatures: local-floor; optionalFeatures: hit-test,anchors,hand-tracking;"
+      game-manager
+      combo-system>
       <!-- Environnement -->
       <a-entity environment="preset: forest; dressingAmount: 500"></a-entity>
       
@@ -16,20 +22,54 @@
       <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-0.5 1 1"></a-entity>
       
       <!-- Sol -->
-      <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4" static-body></a-plane>
       
-      <!-- Cible de test -->
-      <a-cylinder position="0 1.5 -5" radius="0.5" height="0.1" color="#FF0000" rotation="90 0 0">
-        <a-cylinder position="0 0.05 0" radius="0.3" height="0.05" color="#FFFFFF"></a-cylinder>
-        <a-cylinder position="0 0.1 0" radius="0.15" height="0.05" color="#FF0000"></a-cylinder>
-      </a-cylinder>
+      <!-- Scene Mesh Handler pour WebXR -->
+      <a-entity scene-mesh-handler></a-entity>
+      
+      <!-- Cible avec physique et comportement -->
+      <a-entity 
+        id="target-1"
+        position="0 1.5 -5" 
+        rotation="0 0 0"
+        target-behavior="points: 10; hp: 3; movable: false">
+        <!-- Cercle extérieur (rouge) -->
+        <a-cylinder position="0 0 0" radius="0.5" height="0.1" color="#FF0000" rotation="90 0 0" static-body></a-cylinder>
+        <!-- Cercle milieu (blanc) -->
+        <a-cylinder position="0 0 0.06" radius="0.3" height="0.05" color="#FFFFFF"></a-cylinder>
+        <!-- Centre (jaune/or) - Zone de précision maximale -->
+        <a-cylinder position="0 0 0.11" radius="0.1" height="0.05" color="#FFD700"></a-cylinder>
+      </a-entity>
+      
+      <!-- Cible mobile -->
+      <a-entity 
+        id="target-2"
+        position="-2 1.5 -6" 
+        target-behavior="points: 20; hp: 2; movable: true">
+        <a-cylinder radius="0.4" height="0.1" color="#FF4444" rotation="90 0 0" static-body></a-cylinder>
+        <a-cylinder position="0 0 0.06" radius="0.2" height="0.05" color="#FFFFFF"></a-cylinder>
+        <a-cylinder position="0 0 0.11" radius="0.08" height="0.05" color="#FFD700"></a-cylinder>
+      </a-entity>
       
       <!-- Caméra avec contrôles VR -->
       <a-entity id="rig" position="0 1.6 0">
         <a-camera></a-camera>
-        <!-- Contrôleurs VR -->
-        <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: .interactive"></a-entity>
-        <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: .interactive"></a-entity>
+        <!-- Contrôleurs VR avec support hand-tracking -->
+        <a-entity 
+          id="leftHand" 
+          hand-controls="hand: left"
+          hand-tracking-controls="hand: left"
+          vive-controls="hand: left"
+          oculus-touch-controls="hand: left"
+          windows-motion-controls="hand: left"></a-entity>
+        <a-entity 
+          id="rightHand" 
+          hand-controls="hand: right"
+          hand-tracking-controls="hand: right"
+          vive-controls="hand: right"
+          oculus-touch-controls="hand: right"
+          windows-motion-controls="hand: right"
+          bow-logic></a-entity>
       </a-entity>
       
       <!-- Bouton VR pour entrer en mode immersif -->
