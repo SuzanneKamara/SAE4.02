@@ -91,9 +91,7 @@ AFRAME.registerSystem('game-manager', {
     const outerRadius = 0.4 + Math.random() * 0.2
     
     target.innerHTML = `
-      <a-cylinder radius="${outerRadius}" height="0.1" color="#FF0000" rotation="90 0 0" static-body></a-cylinder>
-      <a-cylinder position="0 0 0.06" radius="${outerRadius * 0.6}" height="0.05" color="#FFFFFF"></a-cylinder>
-      <a-cylinder position="0 0 0.11" radius="${outerRadius * 0.3}" height="0.05" color="#FFD700"></a-cylinder>
+      <a-entity gltf-model="#target-model" scale="1 1 1"></a-entity>
     `
     
     this.el.appendChild(target)
