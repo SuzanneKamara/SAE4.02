@@ -116,7 +116,7 @@ AFRAME.registerSystem('game-manager', {
   addTargetGeometry: function (target, config) {
     const { outerRadius } = config
     target.innerHTML = `
-      <a-entity gltf-model="#target-model" scale="1 1 1"></a-entity>
+      <a-entity gltf-model="#target-model" scale="${scale} ${scale} ${scale}"></a-entity>
     `
   },
 
