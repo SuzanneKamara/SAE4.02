@@ -12,6 +12,7 @@ AFRAME.registerComponent('bow-logic', {
   init: function () {
     this.raycaster = new THREE.Raycaster()
     this.shootDirection = new THREE.Vector3()
+    this.mouse = new THREE.Vector2()
     
     // Écouteurs d'événements pour les contrôleurs VR
     // Gâchette (trigger) pour le tir
@@ -20,7 +21,14 @@ AFRAME.registerComponent('bow-logic', {
     // Aussi accepter la gâchette des autres APIs
     this.el.addEventListener('xbuttondown', this.shootArrow.bind(this))
     
-    console.log('🏹 Composant bow-logic initialisé (tir à la gâchette)')
+    // Écouteur pour la souris
+    document.addEventListener('click', this.shootArrowMouse.bind(this))
+    document.addEventListener('mousemove', (e) => {
+      this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1
+      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1
+    })
+    
+    console.log('🏹 Composant bow-logic initialisé (tir à la gâchette + souris)')
   },
 
   shootArrow: function () {
@@ -55,14 +63,17 @@ AFRAME.registerComponent('bow-logic', {
       const hitObject = intersects[0].object
       let targetEntity = null
       
-      // Trouver l'entité A-Frame correspondante
+      // Trouver l'entité A-Frame correspondante en cherchant le parent
       for (let target of targets) {
-        if (target.object3D.children.length > 0) {
-          if (target.object3D.children[0] === hitObject || target.object3D.contains(hitObject)) {
+        let current = hitObject
+        while (current) {
+          if (current === target.object3D) {
             targetEntity = target
             break
           }
+          current = current.parent
         }
+        if (targetEntity) break
       }
       
       // Fallback: chercher par proximité
@@ -88,7 +99,66 @@ AFRAME.registerComponent('bow-logic', {
     console.log('🏹 Tir déclenché')
   },
 
+  shootArrowMouse: function () {
+    const camera = this.el.sceneEl.camera
+    const scene = this.el.sceneEl
+    
+    // Utiliser la position de la souris pour le raycast
+    this.raycaster.setFromCamera(this.mouse, camera)
+    
+    // Détecter les cibles
+    const allEntities = scene.querySelectorAll('[target-behavior]')
+    const targets = Array.from(allEntities)
+    
+    if (targets.length === 0) {
+      console.log('❌ Aucune cible détectée')
+      return
+    }
+    
+    // Intersections avec les cibles
+    const intersects = this.raycaster.intersectObjects(
+      targets.map(t => t.object3D),
+      true
+    )
+    
+    if (intersects.length > 0) {
+      // Première cible touchée
+      const hitObject = intersects[0].object
+      let targetEntity = null
+      
+      // Trouver l'entité A-Frame correspondante en cherchant le parent
+      for (let target of targets) {
+        let current = hitObject
+        while (current) {
+          if (current === target.object3D) {
+            targetEntity = target
+            break
+          }
+          current = current.parent
+        }
+        if (targetEntity) break
+      }
+      
+      // Fallback: chercher par proximité
+      if (!targetEntity) {
+        targetEntity = targets[0]
+      }
+      
+      // Appeler le système de dommage de la cible
+      if (targetEntity.components['target-behavior']) {
+        const impactPoint = intersects[0].point
+        targetEntity.components['target-behavior'].onArrowHit(null, impactPoint)
+        console.log('💥 Cible touchée (souris)!')
+      }
+    } else {
+      console.log('❌ Pas de cible en ligne de mire')
+    }
+    
+    console.log('🏹 Tir à la souris déclenché')
+  },
+
   remove: function () {
     // Cleanup si nécessaire
+    document.removeEventListener('click', this.shootArrowMouse)
   }
 })

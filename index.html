@@ -17,6 +17,8 @@
       <a-assets>
         <a-asset-item id="bow-model" src="/bow.glb"></a-asset-item>
         <a-asset-item id="target-model" src="/target.glb"></a-asset-item>
+        <audio id="background-sound" src="/son/song-background.mp3" crossorigin="anonymous" loop></audio>
+        <audio id="hit-sound" src="/son/arrow.mp3" crossorigin="anonymous"></audio>
       </a-assets>
       
       <!-- Environnement -->
@@ -60,17 +62,17 @@
           hand-tracking-controls="hand: left"
           vive-controls="hand: left"
           oculus-touch-controls="hand: left"
-          windows-motion-controls="hand: left"></a-entity>
+          windows-motion-controls="hand: left"
+          bow-logic>
+          <a-entity gltf-model="#bow-model" scale="0.25 0.25 0.25" rotation="0  90 90" position="0 0 0"></a-entity>
+        </a-entity>
         <a-entity 
           id="rightHand" 
           hand-controls="hand: right"
           hand-tracking-controls="hand: right"
           vive-controls="hand: right"
           oculus-touch-controls="hand: right"
-          windows-motion-controls="hand: right"
-          bow-logic>
-          <a-entity gltf-model="#bow-model" scale="2 2 2" position="0 0 0"></a-entity>
-        </a-entity>
+          windows-motion-controls="hand: right"></a-entity>
       </a-entity>
       
       <!-- Bouton VR pour entrer en mode immersif -->

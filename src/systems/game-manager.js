@@ -6,7 +6,7 @@
 
 AFRAME.registerSystem('game-manager', {
   schema: {
-    spawnInterval: { type: 'number', default: 5000 }, // 5 secondes
+    spawnInterval: { type: 'number', default: 1500 }, // 1.5 secondes
     maxTargets: { type: 'number', default: 5 },
     difficulty: { type: 'string', default: 'normal' } // easy, normal, hard
   },
@@ -23,7 +23,6 @@ AFRAME.registerSystem('game-manager', {
     this.el.addEventListener('target-hit', this.onTargetHit.bind(this))
     this.el.addEventListener('target-destroyed', this.onTargetDestroyed.bind(this))
     this.el.addEventListener('arrow-shot', this.onArrowShot.bind(this))
-    
     // Démarrer le jeu après un délai
     setTimeout(() => {
       this.startGame()
@@ -37,6 +36,12 @@ AFRAME.registerSystem('game-manager', {
     
     this.gameRunning = true
     this.el.setAttribute('state', 'gameStarted', true)
+    
+    // Lancer le son de fond
+    const bgSound = document.getElementById('background-sound')
+    if (bgSound) {
+      bgSound.play().catch(e => console.log('Son de fond non disponible:', e))
+    }
     
     console.log('🎮 Jeu démarré!')
     
@@ -55,8 +60,6 @@ AFRAME.registerSystem('game-manager', {
     }, this.data.spawnInterval)
   },
 
-
-  // Méthode pour spawn une cible aléatoire
   spawnRandomTarget: function () {
     const target = document.createElement('a-entity')
     const targetId = `target-${Date.now()}`
@@ -109,7 +112,8 @@ AFRAME.registerSystem('game-manager', {
     this.totalHits++
     
     // Mettre à jour le score via le state
-    const currentScore = this.el.getAttribute('state').score || 0
+    const state = this.el.getAttribute('state') || {}
+    const currentScore = state.score || 0
     const newScore = currentScore + points
     this.el.setAttribute('state', 'score', newScore)
     this.totalScore = newScore
@@ -128,7 +132,8 @@ AFRAME.registerSystem('game-manager', {
     
     // Ajouter les points bonus
     if (bonusPoints > 0) {
-      const currentScore = this.el.getAttribute('state').score || 0
+      const state = this.el.getAttribute('state') || {}
+      const currentScore = state.score || 0
       this.el.setAttribute('state', 'score', currentScore + bonusPoints)
       this.totalScore = currentScore + bonusPoints
       console.log(`🎁 Bonus de destruction: +${bonusPoints}`)

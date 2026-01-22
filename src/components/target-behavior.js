@@ -65,6 +65,13 @@ AFRAME.registerComponent('target-behavior', {
 
     console.log(`💥 Cible touchée! Zone: ${hitZone} | Distance: ${distanceToCenter.toFixed(3)}m | Points: ${finalPoints} | HP restants: ${this.currentHp}`)
 
+    // Jouer le son de hit
+    const hitSound = document.getElementById('hit-sound')
+    if (hitSound) {
+      hitSound.currentTime = 0
+      hitSound.play().catch(e => console.log('Son de hit non disponible:', e))
+    }
+
     // Animations de feedback
     this.playHitAnimation(hitZone)
     this.showHitFeedback(localImpact, finalPoints, hitZone)
