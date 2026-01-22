@@ -6,30 +6,36 @@
 
 AFRAME.registerSystem('game-manager', {
   schema: {
-    spawnInterval: { type: 'number', default: 5000 }, // 5 secondes
+    spawnInterval: { type: 'number', default: 5000 },
     maxTargets: { type: 'number', default: 5 },
-    difficulty: { type: 'string', default: 'normal' } // easy, normal, hard
+    difficulty: { type: 'string', default: 'normal' }
   },
 
   init: function () {
+    this.initializeGameState()
+    this.setupEventListeners()
+    this.startGameAfterDelay(2000)
+    
+    console.log('🎮 Game Manager initialisé')
+  },
+
+  initializeGameState: function () {
     this.activeTargets = []
     this.totalScore = 0
     this.totalArrowsShot = 0
     this.totalHits = 0
     this.spawnTimer = null
     this.gameRunning = false
-    
-    // Écouter les événements du jeu
+  },
+
+  setupEventListeners: function () {
     this.el.addEventListener('target-hit', this.onTargetHit.bind(this))
     this.el.addEventListener('target-destroyed', this.onTargetDestroyed.bind(this))
     this.el.addEventListener('arrow-shot', this.onArrowShot.bind(this))
-    
-    // Démarrer le jeu après un délai
-    setTimeout(() => {
-      this.startGame()
-    }, 2000)
-    
-    console.log('🎮 Game Manager initialisé')
+  },
+
+  startGameAfterDelay: function (delay) {
+    setTimeout(() => this.startGame(), delay)
   },
 
   startGame: function () {
@@ -37,108 +43,126 @@ AFRAME.registerSystem('game-manager', {
     
     this.gameRunning = true
     this.el.setAttribute('state', 'gameStarted', true)
+    this.startTargetSpawning()
+    this.createScoreDisplay()
     
     console.log('🎮 Jeu démarré!')
-    
-    // Commencer le spawn automatique de cibles
-    this.startTargetSpawning()
-    
-    // Créer l'affichage du score
-    this.createScoreDisplay()
   },
 
   startTargetSpawning: function () {
     this.spawnTimer = setInterval(() => {
-      if (this.activeTargets.length < this.data.maxTargets) {
+      if (this.canSpawnMoreTargets()) {
         this.spawnRandomTarget()
       }
     }, this.data.spawnInterval)
   },
 
+  canSpawnMoreTargets: function () {
+    return this.activeTargets.length < this.data.maxTargets
+  },
+
   spawnRandomTarget: function () {
+    const target = this.createTargetEntity()
+    const config = this.getTargetConfig()
+    
+    this.configureTarget(target, config)
+    this.addTargetGeometry(target, config)
+    this.addToScene(target)
+    
+    console.log(`🎯 Cible spawned: ${target.id} (${config.points}pts, ${config.hp}HP)`)
+  },
+
+  createTargetEntity: function () {
     const target = document.createElement('a-entity')
-    const targetId = `target-${Date.now()}`
-    
-    // Position aléatoire
-    const x = (Math.random() - 0.5) * 6
-    const y = 1 + Math.random() * 2
-    const z = -4 - Math.random() * 3
-    
-    // Paramètres basés sur la difficulté
-    let points = 10
-    let hp = 1
-    let movable = false
-    
-    if (this.data.difficulty === 'hard') {
-      points = 20
-      hp = Math.floor(Math.random() * 3) + 1
-      movable = Math.random() > 0.5
-    } else if (this.data.difficulty === 'normal') {
-      points = 15
-      hp = Math.random() > 0.7 ? 2 : 1
-      movable = Math.random() > 0.7
-    }
-    
-    target.id = targetId
-    target.setAttribute('position', `${x} ${y} ${z}`)
-    target.setAttribute('target-behavior', {
-      points: points,
-      hp: hp,
-      movable: movable
-    })
-    
-    // Créer la géométrie de la cible
+    target.id = `target-${Date.now()}`
+    return target
+  },
+
+  getTargetConfig: function () {
+    const position = this.getRandomPosition()
+    const difficulty = this.getDifficultySettings()
     const outerRadius = 0.4 + Math.random() * 0.2
     
+    return { ...position, ...difficulty, outerRadius }
+  },
+
+  getRandomPosition: function () {
+    return {
+      x: (Math.random() - 0.5) * 6,
+      y: 1 + Math.random() * 2,
+      z: -4 - Math.random() * 3
+    }
+  },
+
+  getDifficultySettings: function () {
+    const settings = {
+      easy: { points: 10, hp: 1, movable: false },
+      normal: { points: 15, hp: Math.random() > 0.7 ? 2 : 1, movable: Math.random() > 0.7 },
+      hard: { points: 20, hp: Math.floor(Math.random() * 3) + 1, movable: Math.random() > 0.5 }
+    }
+    
+    return settings[this.data.difficulty] || settings.normal
+  },
+
+  configureTarget: function (target, config) {
+    target.setAttribute('position', `${config.x} ${config.y} ${config.z}`)
+    target.setAttribute('target-behavior', {
+      points: config.points,
+      hp: config.hp,
+      movable: config.movable
+    })
+  },
+
+  addTargetGeometry: function (target, config) {
+    const { outerRadius } = config
     target.innerHTML = `
       <a-cylinder radius="${outerRadius}" height="0.1" color="#FF0000" rotation="90 0 0" static-body></a-cylinder>
       <a-cylinder position="0 0 0.06" radius="${outerRadius * 0.6}" height="0.05" color="#FFFFFF"></a-cylinder>
       <a-cylinder position="0 0 0.11" radius="${outerRadius * 0.3}" height="0.05" color="#FFD700"></a-cylinder>
     `
-    
+  },
+
+  addToScene: function (target) {
     this.el.appendChild(target)
     this.activeTargets.push(target)
-    
-    console.log(`🎯 Nouvelle cible spawned: ${targetId} (${points}pts, ${hp}HP, mobile: ${movable})`)
   },
 
   onTargetHit: function (evt) {
-    const { points, zone, multiplier } = evt.detail
+    const { points, zone } = evt.detail
     
     this.totalHits++
-    
-    // Mettre à jour le score via le state
-    const currentScore = this.el.getAttribute('state').score || 0
-    const newScore = currentScore + points
-    this.el.setAttribute('state', 'score', newScore)
-    this.totalScore = newScore
-    
-    console.log(`📊 Score mis à jour: ${newScore} (+${points} en ${zone})`)
-    
-    // Mettre à jour l'affichage
+    this.addScore(points)
     this.updateScoreDisplay()
+    
+    console.log(`📊 Score: ${this.totalScore} (+${points} en ${zone})`)
   },
 
   onTargetDestroyed: function (evt) {
     const { bonusPoints } = evt.detail
     
-    // Retirer la cible de la liste active
-    this.activeTargets = this.activeTargets.filter(t => t.parentNode)
+    this.removeDestroyedTargets()
     
-    // Ajouter les points bonus
     if (bonusPoints > 0) {
-      const currentScore = this.el.getAttribute('state').score || 0
-      this.el.setAttribute('state', 'score', currentScore + bonusPoints)
-      this.totalScore = currentScore + bonusPoints
-      console.log(`🎁 Bonus de destruction: +${bonusPoints}`)
+      this.addScore(bonusPoints)
+      console.log(`🎁 Bonus: +${bonusPoints}`)
     }
     
     this.updateScoreDisplay()
   },
 
-  onArrowShot: function (evt) {
+  removeDestroyedTargets: function () {
+    this.activeTargets = this.activeTargets.filter(t => t.parentNode)
+  },
+
+  onArrowShot: function () {
     this.totalArrowsShot++
-    console.log(`🏹 Flèches tirées: ${this.totalArrowsShot}`)
+  },
+
+  addScore: function (points) {
+    const currentScore = this.el.getAttribute('state').score || 0
+    const newScore = currentScore + points
+    this.el.setAttribute('state', 'score', newScore)
+    this.totalScore = newScore
   },
 
   createScoreDisplay: function () {
@@ -155,22 +179,21 @@ AFRAME.registerSystem('game-manager', {
   },
 
   updateScoreDisplay: function () {
-    const scoreEl = document.getElementById('score-value')
-    const targetsEl = document.getElementById('targets-value')
-    const accuracyEl = document.getElementById('accuracy-value')
+    this.updateElement('score-value', this.totalScore)
+    this.updateElement('targets-value', this.activeTargets.length)
+    this.updateAccuracy()
+  },
+
+  updateElement: function (id, value) {
+    const element = document.getElementById(id)
+    if (element) element.textContent = value
+  },
+
+  updateAccuracy: function () {
+    if (this.totalArrowsShot === 0) return
     
-    if (scoreEl) {
-      scoreEl.textContent = this.totalScore
-    }
-    
-    if (targetsEl) {
-      targetsEl.textContent = this.activeTargets.length
-    }
-    
-    if (accuracyEl && this.totalArrowsShot > 0) {
-      const accuracy = Math.round((this.totalHits / this.totalArrowsShot) * 100)
-      accuracyEl.textContent = `${accuracy}%`
-    }
+    const accuracy = Math.round((this.totalHits / this.totalArrowsShot) * 100)
+    this.updateElement('accuracy-value', `${accuracy}%`)
   },
 
   stopGame: function () {
@@ -182,10 +205,13 @@ AFRAME.registerSystem('game-manager', {
     console.log('🎮 Jeu arrêté')
   },
 
-  tick: function (time, deltaTime) {
-    // Mise à jour périodique si nécessaire
-    if (this.gameRunning && time % 1000 < 16) {
+  tick: function (time) {
+    if (this.gameRunning && this.shouldUpdateDisplay(time)) {
       this.updateScoreDisplay()
     }
+  },
+
+  shouldUpdateDisplay: function (time) {
+    return time % 1000 < 16
   }
 })

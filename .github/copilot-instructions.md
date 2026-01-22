@@ -27,6 +27,37 @@ mcp_io_github_ups_get-library-docs("/aframevr/aframe", mode="info", topic="best 
 
 **Ne jamais** implémenter de code basé sur des suppositions ou des versions obsolètes. Toujours valider avec Context7 en premier.
 
+## Principes de Code
+
+### Lisibilité et Simplicité
+- ✅ **Code lisible en un coup d'œil** : Utiliser des noms de fonctions et variables explicites
+- ✅ **Fonctions simples** : Une fonction = une responsabilité claire
+- ✅ **Commentaires minimaux** : Le code doit se suffire à lui-même, commenter uniquement les algorithmes complexes
+- ✅ **Extraction de fonctions** : Si un bloc fait plus de 10 lignes, extraire en fonction nommée
+- ✅ **Noms descriptifs** : `calculateDistanceToTarget()` plutôt que `calc()` ou commentaires explicatifs
+
+**Exemple** :
+```javascript
+// ❌ Mauvais : nécessite des commentaires
+function process(d) {
+  // Calculer la distance au centre
+  const dist = Math.sqrt(d.x ** 2 + d.y ** 2)
+  // Appliquer le multiplicateur selon la zone
+  if (dist <= 0.1) return 3.0
+  else if (dist <= 0.3) return 2.0
+  else return 1.0
+}
+
+// ✅ Bon : auto-explicatif
+function calculatePrecisionMultiplier(localImpact) {
+  const distanceToCenter = Math.sqrt(localImpact.x ** 2 + localImpact.y ** 2)
+  
+  if (distanceToCenter <= BULLSEYE_RADIUS) return BULLSEYE_MULTIPLIER
+  if (distanceToCenter <= MIDDLE_RADIUS) return MIDDLE_MULTIPLIER
+  return OUTER_MULTIPLIER
+}
+```
+
 ## Architecture ECS (Entity-Component-System)
 
 ### Composants (`src/components/`)
