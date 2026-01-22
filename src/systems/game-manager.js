@@ -55,14 +55,19 @@ AFRAME.registerSystem('game-manager', {
     }, this.data.spawnInterval)
   },
 
+
+  // Méthode pour spawn une cible aléatoire
   spawnRandomTarget: function () {
     const target = document.createElement('a-entity')
     const targetId = `target-${Date.now()}`
     
-    // Position aléatoire
-    const x = (Math.random() - 0.5) * 6
-    const y = 1 + Math.random() * 2
-    const z = -4 - Math.random() * 3
+    // Position aléatoire avec distance variable
+    const x = (Math.random() - 0.5) * 8
+    const y = 1 + Math.random() * 2.5
+    const z = -4 - Math.random() * 5  // Distance plus variable (4 à 9)
+    
+    // Taille aléatoire de la cible
+    const scale = 0.5 + Math.random() * 1.0  // Entre 0.5 et 1.5
     
     // Paramètres basés sur la difficulté
     let points = 10
@@ -87,11 +92,9 @@ AFRAME.registerSystem('game-manager', {
       movable: movable
     })
     
-    // Créer la géométrie de la cible
-    const outerRadius = 0.4 + Math.random() * 0.2
-    
+    // Créer la géométrie de la cible avec taille variable
     target.innerHTML = `
-      <a-entity gltf-model="#target-model" scale="1 1 1"></a-entity>
+      <a-entity gltf-model="#target-model" scale="${scale} ${scale} ${scale}"></a-entity>
     `
     
     this.el.appendChild(target)
