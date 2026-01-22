@@ -9,11 +9,16 @@
   <body>
     <!-- State management avec aframe-state-component -->
     <a-scene 
-      physics="driver: ammo; debug: false; gravity: 0 -9.81 0"
       state="score: 0; combo: 0; multiplier: 1.0; gameStarted: false"
       webxr="requiredFeatures: local-floor; optionalFeatures: hit-test,anchors,hand-tracking;"
       game-manager
       combo-system>
+      <!-- Assets -->
+      <a-assets>
+        <a-asset-item id="bow-model" src="/bow.glb"></a-asset-item>
+        <a-asset-item id="target-model" src="/target.glb"></a-asset-item>
+      </a-assets>
+      
       <!-- Environnement -->
       <a-entity environment="preset: forest; dressingAmount: 500"></a-entity>
       
@@ -21,9 +26,9 @@
       <a-entity light="type: ambient; color: #BBB"></a-entity>
       <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-0.5 1 1"></a-entity>
       
-      <!-- Sol -->
-      <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4" static-body></a-plane>
-      
+      <!-- Sol (invisible mais interactif) -->
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="50" height="50"
+           material="transparent: true; opacity: 0"></a-plane>
       <!-- Scene Mesh Handler pour WebXR -->
       <a-entity scene-mesh-handler></a-entity>
       
@@ -33,12 +38,7 @@
         position="0 1.5 -5" 
         rotation="0 0 0"
         target-behavior="points: 10; hp: 3; movable: false">
-        <!-- Cercle extérieur (rouge) -->
-        <a-cylinder position="0 0 0" radius="0.5" height="0.1" color="#FF0000" rotation="90 0 0" static-body></a-cylinder>
-        <!-- Cercle milieu (blanc) -->
-        <a-cylinder position="0 0 0.06" radius="0.3" height="0.05" color="#FFFFFF"></a-cylinder>
-        <!-- Centre (jaune/or) - Zone de précision maximale -->
-        <a-cylinder position="0 0 0.11" radius="0.1" height="0.05" color="#FFD700"></a-cylinder>
+        <a-entity gltf-model="#target-model" scale="1 1 1"></a-entity>
       </a-entity>
       
       <!-- Cible mobile -->
@@ -46,9 +46,7 @@
         id="target-2"
         position="-2 1.5 -6" 
         target-behavior="points: 20; hp: 2; movable: true">
-        <a-cylinder radius="0.4" height="0.1" color="#FF4444" rotation="90 0 0" static-body></a-cylinder>
-        <a-cylinder position="0 0 0.06" radius="0.2" height="0.05" color="#FFFFFF"></a-cylinder>
-        <a-cylinder position="0 0 0.11" radius="0.08" height="0.05" color="#FFD700"></a-cylinder>
+        <a-entity gltf-model="#target-model" scale="1 1 1"></a-entity>
       </a-entity>
       
       <!-- Caméra avec contrôles VR -->
@@ -69,11 +67,13 @@
           vive-controls="hand: right"
           oculus-touch-controls="hand: right"
           windows-motion-controls="hand: right"
-          bow-logic></a-entity>
+          bow-logic>
+          <a-entity gltf-model="#bow-model" scale="2 2 2" position="0 0 0"></a-entity>
+        </a-entity>
       </a-entity>
       
       <!-- Bouton VR pour entrer en mode immersif -->
-      <a-entity position="0 2 -3" class="interactive">
+      <a-entity position="0 2 -3" class="interactive" raycaster="objects: .interactive" cursor="rayOrigin: mouse">
         <a-box position="0 0 0" rotation="0 45 0" color="#4CC3D9" 
                animation="property: rotation; to: 0 405 0; loop: true; dur: 10000"></a-box>
         <a-text value="Cliquez pour commencer" position="0 0.6 0" align="center" color="#000" width="4"></a-text>
@@ -83,7 +83,24 @@
       <a-text value="SAE 4.02 - Archery XR\nAppuyez sur VR pour mode immersif" 
               position="0 2.5 -4" align="center" color="#FFF" width="6"></a-text>
     </a-scene>
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
