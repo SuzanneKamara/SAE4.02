@@ -16,6 +16,12 @@ AFRAME.registerComponent('bow-logic', {
     this.triggerPressed = false
     this.lastGamepadState = {}
     
+    // Créer le laser visuel pour le VR
+    this.createLaserBeam()
+    
+    // Créer le viseur pour viser
+    this.createCrosshair()
+    
     // Écouteurs d'événements pour les contrôleurs VR
     this.el.addEventListener('triggerdown', this.shootArrow.bind(this))
     this.el.addEventListener('trigger-start', this.shootArrow.bind(this))
@@ -33,6 +39,148 @@ AFRAME.registerComponent('bow-logic', {
     this.addLog('✓ bow-logic initialisé')
   },
 
+  createLaserBeam: function() {
+    // Créer plusieurs sphères espacées pour créer un laser visible
+    const laserGroup = document.createElement('a-entity')
+    laserGroup.setAttribute('id', 'laser-group')
+    laserGroup.setAttribute('position', '0 0 0')
+    laserGroup.setAttribute('rotation', '0 0 0')
+    
+    // Créer 20 GROSSES sphères espacées le long de l'axe Y négatif
+    this.laserSpheres = []
+    for (let i = 0; i < 20; i++) {
+      const sphere = document.createElement('a-sphere')
+      sphere.setAttribute('radius', '0.15')  // Plus grosses
+      sphere.setAttribute('color', '#00ff00')
+      sphere.setAttribute('position', `0 -${i * 0.3} 0`)  // Axe Y négatif
+      sphere.setAttribute('material', 'shader: flat; emissive: #00ff00; emissiveIntensity: 3.0; side: double')
+      sphere.setAttribute('visible', 'true')
+      laserGroup.appendChild(sphere)
+      this.laserSpheres.push(sphere)
+    }
+    
+    // ÉNORME sphère de début JAUNE
+    const startSphere = document.createElement('a-sphere')
+    startSphere.setAttribute('id', 'ray-start')
+    startSphere.setAttribute('radius', '0.3')
+    startSphere.setAttribute('color', '#ffff00')
+    startSphere.setAttribute('position', '0 0 0')
+    startSphere.setAttribute('material', 'shader: flat; emissive: #ffff00; emissiveIntensity: 3.0; side: double')
+    startSphere.setAttribute('visible', 'true')
+    laserGroup.appendChild(startSphere)
+    
+    // ÉNORME sphère de fin ROUGE
+    const endSphere = document.createElement('a-sphere')
+    endSphere.setAttribute('id', 'ray-end')
+    endSphere.setAttribute('radius', '0.4')
+    endSphere.setAttribute('color', '#ff0000')
+    endSphere.setAttribute('position', '0 -6 0')
+    endSphere.setAttribute('material', 'shader: flat; emissive: #ff0000; emissiveIntensity: 3.0; side: double')
+    endSphere.setAttribute('visible', 'true')
+    laserGroup.appendChild(endSphere)
+    
+    this.el.appendChild(laserGroup)
+    this.laserGroup = laserGroup
+    this.startSphere = startSphere
+    this.endSphere = endSphere
+    
+    console.log('✅ LASER avec 20 GROSSES sphères créé')
+  },
+
+  createCrosshair: function() {
+    // Créer un viseur attaché à la caméra
+    const camera = document.querySelector('[camera]')
+    if (!camera) {
+      console.warn('Caméra non trouvée pour le viseur')
+      return
+    }
+    
+    // Groupe pour le viseur
+    const crosshairGroup = document.createElement('a-entity')
+    crosshairGroup.setAttribute('id', 'crosshair-group')
+    crosshairGroup.setAttribute('position', '0 0 -2')  // 2m devant la caméra
+    
+    // Cercle extérieur du viseur
+    const outerRing = document.createElement('a-ring')
+    outerRing.setAttribute('id', 'crosshair-outer')
+    outerRing.setAttribute('radius-inner', '0.04')
+    outerRing.setAttribute('radius-outer', '0.05')
+    outerRing.setAttribute('color', '#00ff00')
+    outerRing.setAttribute('material', 'shader: flat; opacity: 0.8; transparent: true')
+    crosshairGroup.appendChild(outerRing)
+    
+    // Point central du viseur
+    const centerDot = document.createElement('a-circle')
+    centerDot.setAttribute('id', 'crosshair-center')
+    centerDot.setAttribute('radius', '0.01')
+    centerDot.setAttribute('color', '#ff0000')
+    centerDot.setAttribute('material', 'shader: flat; opacity: 1.0')
+    crosshairGroup.appendChild(centerDot)
+    
+    // Lignes horizontales et verticales
+    const lineH = document.createElement('a-plane')
+    lineH.setAttribute('width', '0.1')
+    lineH.setAttribute('height', '0.005')
+    lineH.setAttribute('color', '#00ff00')
+    lineH.setAttribute('material', 'shader: flat; opacity: 0.8; transparent: true')
+    crosshairGroup.appendChild(lineH)
+    
+    const lineV = document.createElement('a-plane')
+    lineV.setAttribute('width', '0.005')
+    lineV.setAttribute('height', '0.1')
+    lineV.setAttribute('color', '#00ff00')
+    lineV.setAttribute('material', 'shader: flat; opacity: 0.8; transparent: true')
+    crosshairGroup.appendChild(lineV)
+    
+    camera.appendChild(crosshairGroup)
+    this.crosshairGroup = crosshairGroup
+    this.crosshairOuter = outerRing
+    this.crosshairCenter = centerDot
+    
+    console.log('✅ Viseur créé et attaché à la caméra')
+  },
+
+  updateCrosshair: function() {
+    if (!this.crosshairOuter) return
+    
+    // Changer la couleur du viseur selon si on vise une cible
+    const scene = this.el.sceneEl
+    const camera = scene.camera
+    
+    if (!camera) return
+    
+    // Créer un raycast depuis la caméra
+    const raycaster = new THREE.Raycaster()
+    const cameraPos = new THREE.Vector3()
+    const cameraQuat = new THREE.Quaternion()
+    
+    camera.getWorldPosition(cameraPos)
+    camera.getWorldQuaternion(cameraQuat)
+    
+    const forward = new THREE.Vector3(0, 0, -1)
+    forward.applyQuaternion(cameraQuat)
+    
+    raycaster.set(cameraPos, forward)
+    
+    // Vérifier si on vise une cible
+    const targets = Array.from(scene.querySelectorAll('[target-behavior]'))
+    
+    if (targets.length > 0) {
+      const targetObjects = targets.map(t => t.object3D)
+      const intersects = raycaster.intersectObjects(targetObjects, true)
+      
+      if (intersects.length > 0) {
+        // Viseur ROUGE quand on vise une cible
+        this.crosshairOuter.setAttribute('color', '#ff0000')
+        this.crosshairCenter.setAttribute('color', '#ffff00')
+      } else {
+        // Viseur VERT quand on ne vise rien
+        this.crosshairOuter.setAttribute('color', '#00ff00')
+        this.crosshairCenter.setAttribute('color', '#ff0000')
+      }
+    }
+  },
+
   addLog: function(msg) {
     const errorList = document.getElementById('error-list')
     if (errorList) {
@@ -47,9 +195,72 @@ AFRAME.registerComponent('bow-logic', {
     }
   },
 
+  updateLaserBeam: function() {
+    if (!this.laserSpheres) return
+    
+    try {
+      // Calculer le raycast pour voir si on vise une cible
+      const handPos = this.el.object3D.getWorldPosition(new THREE.Vector3())
+      const handRot = this.el.object3D.getWorldQuaternion(new THREE.Quaternion())
+      
+      const forward = new THREE.Vector3(0, -1, 0)  // Demi-tour: axe Y négatif
+      forward.applyQuaternion(handRot)
+      
+      this.raycaster.set(handPos, forward)
+      
+      // Vérifier si on vise une cible
+      const scene = this.el.sceneEl
+      const allEntities = scene.querySelectorAll('[target-behavior]')
+      const targets = Array.from(allEntities)
+      
+      let laserLength = 10
+      let laserColor = '#00ff00' // Vert par défaut
+      
+      if (targets.length > 0) {
+        const targetObjects = targets.map(t => t.object3D)
+        const intersects = this.raycaster.intersectObjects(targetObjects, true)
+        
+        if (intersects.length > 0) {
+          // On vise une cible - laser rouge et s'arrête à la cible
+          laserLength = intersects[0].distance
+          laserColor = '#ff0000' // Rouge
+        }
+      }
+      
+      // Mettre à jour toutes les sphères du laser
+      const numSpheres = Math.min(this.laserSpheres.length, Math.ceil(laserLength))
+      for (let i = 0; i < this.laserSpheres.length; i++) {
+        if (i < numSpheres) {
+          const y = -(i * laserLength / this.laserSpheres.length)  // Axe Y négatif
+          this.laserSpheres[i].setAttribute('position', `0 ${y} 0`)
+          this.laserSpheres[i].setAttribute('color', laserColor)
+          this.laserSpheres[i].setAttribute('material', `shader: flat; emissive: ${laserColor}; emissiveIntensity: 2.0`)
+          this.laserSpheres[i].setAttribute('visible', 'true')
+        } else {
+          this.laserSpheres[i].setAttribute('visible', 'false')
+        }
+      }
+      
+      // Mettre à jour la sphère de fin
+      if (this.endSphere) {
+        this.endSphere.setAttribute('position', `0 -${laserLength} 0`)  // Axe Y négatif
+        this.endSphere.setAttribute('color', laserColor)
+        this.endSphere.setAttribute('material', `shader: flat; emissive: ${laserColor}; emissiveIntensity: 2.0`)
+      }
+    } catch (e) {
+      // Ignorer les erreurs pour ne pas spammer la console
+    }
+  },
+
   tick: function() {
     // Vérifier les gamepads WebXR/VR
     const gamepads = navigator.getGamepads()
+    
+    // Update laser beam direction
+    this.updateLaserBeam()
+    
+    // Update crosshair color
+    this.updateCrosshair()
     
     // Update debug panel
     const debugPanel = document.getElementById('debug-panel')
@@ -64,7 +275,7 @@ AFRAME.registerComponent('bow-logic', {
     const connectedGamepads = Array.from(gamepads).filter(g => g !== null)
     document.getElementById('debug-gamepad').textContent = `Gamepads: ${connectedGamepads.length} connectés`
     
-    // Essayer TOUS les gamepads
+    // Essayer TOUS les gamepads SANS restriction de hand
     for (let i = 0; i < gamepads.length; i++) {
       const gamepad = gamepads[i]
       if (!gamepad) continue
@@ -74,12 +285,6 @@ AFRAME.registerComponent('bow-logic', {
         this.addLog(`📍 Gamepad ${i}: ${gamepad.id}`)
         this.lastGamepadState[i] = true
       }
-
-      // Chercher la main gauche
-      const isLeftHand = (i === 0 || i === 2) && this.el.id === 'leftHand'
-      const isRightHand = (i === 1 || i === 3) && this.el.id === 'rightHand'
-
-      if (!isLeftHand && !isRightHand) continue
 
       // Vérifier TOUS les boutons disponibles
       let pressedButton = null
@@ -96,27 +301,35 @@ AFRAME.registerComponent('bow-logic', {
       
       // Vérifier les axes (joysticks)
       let axisActive = false
+      let axisValue = 0
       for (let a = 0; a < gamepad.axes.length; a++) {
         if (Math.abs(gamepad.axes[a]) > 0.5) {
           axisActive = true
+          axisValue = gamepad.axes[a]
           break
         }
       }
       
       // Update debug info
       if (pressedButton) {
-        document.getElementById('debug-trigger').textContent = `Button ${buttonIndex}: ON ✓`
+        document.getElementById('debug-trigger').textContent = `Button ${buttonIndex}: ON ✓ (${pressedButton.value.toFixed(2)})`
       } else {
         document.getElementById('debug-trigger').textContent = `Buttons: OFF`
       }
       
-      document.getElementById('debug-thumbstick').textContent = `Axes: ${axisActive ? 'ACTIVE ✓' : 'OFF'}`
+      if (axisActive) {
+        document.getElementById('debug-thumbstick').textContent = `Axes: ACTIVE ✓ (${axisValue.toFixed(2)})`
+      } else {
+        document.getElementById('debug-thumbstick').textContent = `Axes: OFF`
+      }
 
-      // Déclencher le tir
+      // Déclencher le tir si BOUTON OU AXE activé
+      // Ne pas vérifier la main, just tirer avec n'importe quel input
       if (pressedButton || axisActive) {
         if (!this.triggerPressed) {
           this.triggerPressed = true
-          this.addLog(`🎯 Button/Axis input detected!`)
+          this.addLog(`🎯 Input détecté: Button ${buttonIndex} ou Axis!`)
+          console.log(`🎮 Gamepad ${i} - Button/Axis activation detected`)
           this.shootArrow()
         }
       } else {
@@ -126,9 +339,31 @@ AFRAME.registerComponent('bow-logic', {
   },
 
   shootArrow: function () {
+    console.log('🏹 shootArrow() CALLED - Bow is on:', this.el.id)
     this.addLog('🏹 shootArrow() appelé')
     
     try {
+      // Jouer le son de tir
+      try {
+        const shootSound = document.getElementById('shoot-sound')
+        if (shootSound) {
+          shootSound.currentTime = 0
+          shootSound.play().catch(e => console.log('Son de tir non disponible:', e))
+          this.addLog('🔊 Son de tir joué')
+        } else {
+          this.addLog('❌ shoot-sound element not found')
+        }
+      } catch (e) {
+        console.error('Shoot sound error:', e)
+      }
+
+      // Vérifier que l'arc existe
+      if (!this.el.object3D) {
+        this.addLog('❌ Bow object3D not found')
+        console.error('Bow object3D not found')
+        return
+      }
+
       const handPos = this.el.object3D.getWorldPosition(new THREE.Vector3())
       const handRot = this.el.object3D.getWorldQuaternion(new THREE.Quaternion())
       
@@ -138,9 +373,10 @@ AFRAME.registerComponent('bow-logic', {
       }
       
       console.log('🏹 Tir VR déclenché', { handPos, handRot })
+      this.addLog(`📍 Position: ${handPos.x.toFixed(2)}, ${handPos.y.toFixed(2)}, ${handPos.z.toFixed(2)}`)
       
       // Calculer la direction de tir (vers l'avant de la main)
-      const forward = new THREE.Vector3(0, 0, -1)
+      const forward = new THREE.Vector3(0, -1, 0)  // Demi-tour: axe Y négatif
       forward.applyQuaternion(handRot)
       
       // Créer un raycaster
@@ -173,6 +409,8 @@ AFRAME.registerComponent('bow-logic', {
       // Intersections avec les cibles
       const targetObjects = targets.map(t => t.object3D)
       const intersects = this.raycaster.intersectObjects(targetObjects, true)
+      
+      this.addLog(`🔍 Raycast intersections: ${intersects.length}`)
       
       if (intersects.length > 0) {
         this.addLog(`✓ Raycast hit: ${intersects.length} intersection(s)`)
@@ -219,7 +457,7 @@ AFRAME.registerComponent('bow-logic', {
           console.log('💥 Cible touchée!')
           const raycastEl = document.getElementById('debug-raycast')
           if (raycastEl) raycastEl.textContent = 'Raycast: HIT ✓'
-          this.addLog('✓ Cible touchée!')
+          this.addLog('✓ Cible touchée et points ajoutés!')
         } else {
           this.addLog('❌ Could not find target entity')
         }
@@ -239,6 +477,17 @@ AFRAME.registerComponent('bow-logic', {
   },
 
   shootArrowMouse: function () {
+    // Jouer le son de tir
+    try {
+      const shootSound = document.getElementById('shoot-sound')
+      if (shootSound) {
+        shootSound.currentTime = 0
+        shootSound.play().catch(e => console.log('Son de tir non disponible:', e))
+      }
+    } catch (e) {
+      console.error('Shoot sound error:', e)
+    }
+
     const camera = this.el.sceneEl.camera
     const scene = this.el.sceneEl
     
@@ -284,7 +533,7 @@ AFRAME.registerComponent('bow-logic', {
       }
       
       // Appeler le système de dommage de la cible
-      if (targetEntity.components['target-behavior']) {
+      if (targetEntity && targetEntity.components && targetEntity.components['target-behavior']) {
         const impactPoint = intersects[0].point
         targetEntity.components['target-behavior'].onArrowHit(null, impactPoint)
         console.log('💥 Cible touchée (souris)!')
@@ -292,8 +541,6 @@ AFRAME.registerComponent('bow-logic', {
     } else {
       console.log('❌ Pas de cible en ligne de mire')
     }
-    
-    console.log('🏹 Tir à la souris déclenché')
   },
 
   remove: function () {

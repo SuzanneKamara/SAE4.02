@@ -75,16 +75,14 @@ AFRAME.registerSystem('game-manager', {
     // Paramètres basés sur la difficulté
     let points = 10
     let hp = 1
-    let movable = false
+    let movable = false  // Toujours statique
     
     if (this.data.difficulty === 'hard') {
       points = 20
       hp = Math.floor(Math.random() * 3) + 1
-      movable = Math.random() > 0.5
     } else if (this.data.difficulty === 'normal') {
       points = 15
       hp = Math.random() > 0.7 ? 2 : 1
-      movable = Math.random() > 0.7
     }
     
     target.id = targetId
@@ -92,18 +90,18 @@ AFRAME.registerSystem('game-manager', {
     target.setAttribute('target-behavior', {
       points: points,
       hp: hp,
-      movable: movable
+      movable: false  // Toujours statique
     })
     
     // Créer la géométrie de la cible avec taille variable
     target.innerHTML = `
-      <a-entity gltf-model="#target-model" scale="${scale} ${scale} ${scale}"></a-entity>
+      <a-entity gltf-model="#target-model" scale="${scale} ${scale} ${scale}" animation-mixer="clip: NONE"></a-entity>
     `
     
     this.el.appendChild(target)
     this.activeTargets.push(target)
     
-    console.log(`🎯 Nouvelle cible spawned: ${targetId} (${points}pts, ${hp}HP, mobile: ${movable})`)
+    console.log(`🎯 Nouvelle cible spawned: ${targetId} (${points}pts, ${hp}HP, statique)`)
   },
 
   onTargetHit: function (evt) {

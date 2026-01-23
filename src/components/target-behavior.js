@@ -191,7 +191,7 @@ AFRAME.registerComponent('target-behavior', {
       let time = 0
       
       const moveInterval = setInterval(() => {
-        if (!this.el.parentNode) {
+        if (!this.el || !this.el.parentNode) {
           clearInterval(moveInterval)
           return
         }
@@ -208,6 +208,14 @@ AFRAME.registerComponent('target-behavior', {
       console.log('🎯 Cible mobile activée')
     } catch (e) {
       console.error('Movement error:', e)
+    }
+  },
+
+  remove: function () {
+    // Nettoyer l'intervalle de mouvement
+    if (this.moveInterval) {
+      clearInterval(this.moveInterval)
+      this.moveInterval = null
     }
   }
 })
