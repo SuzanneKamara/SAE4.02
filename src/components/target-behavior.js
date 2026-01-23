@@ -31,169 +31,149 @@ AFRAME.registerComponent('target-behavior', {
    * Calcule le score de précision basé sur la distance au centre
    */
   onArrowHit: function (arrowEl, impactPoint) {
-    this.hitCount++
-    this.currentHp--
+    try {
+      if (!impactPoint) {
+        console.error('No impact point provided')
+        return
+      }
 
-    // Convertir le point d'impact en coordonnées locales de la cible
-    const localImpact = this.el.object3D.worldToLocal(impactPoint.clone())
-    
-    // Calculer la distance au centre (sur le plan XY local)
-    const distanceToCenter = Math.sqrt(
-      localImpact.x * localImpact.x + 
-      localImpact.y * localImpact.y
-    )
+      this.hitCount++
+      this.currentHp--
 
-    // Calculer le multiplicateur de précision
-    let precisionMultiplier = 1.0
-    let hitZone = 'outer'
-    
-    if (distanceToCenter <= this.data.centerRadius) {
-      precisionMultiplier = 3.0 // Bullseye! x3
-      hitZone = 'bullseye'
-    } else if (distanceToCenter <= this.data.middleRadius) {
-      precisionMultiplier = 2.0 // Zone moyenne x2
-      hitZone = 'middle'
-    } else if (distanceToCenter <= this.data.outerRadius) {
-      precisionMultiplier = 1.0 // Zone extérieure x1
-      hitZone = 'outer'
-    } else {
-      precisionMultiplier = 0.5 // Touché le bord x0.5
-      hitZone = 'edge'
-    }
+      // Convertir le point d'impact en coordonnées locales de la cible
+      const localImpact = this.el.object3D.worldToLocal(impactPoint.clone())
+      
+      // Calculer la distance au centre (sur le plan XY local)
+      const distanceToCenter = Math.sqrt(
+        localImpact.x * localImpact.x + 
+        localImpact.y * localImpact.y
+      )
 
-    const finalPoints = Math.floor(this.data.points * precisionMultiplier)
+      // Calculer le multiplicateur de précision
+      let precisionMultiplier = 1.0
+      let hitZone = 'outer'
+      
+      if (distanceToCenter <= this.data.centerRadius) {
+        precisionMultiplier = 3.0 // Bullseye! x3
+        hitZone = 'bullseye'
+      } else if (distanceToCenter <= this.data.middleRadius) {
+        precisionMultiplier = 2.0 // Zone moyenne x2
+        hitZone = 'middle'
+      } else if (distanceToCenter <= this.data.outerRadius) {
+        precisionMultiplier = 1.0 // Zone extérieure x1
+        hitZone = 'outer'
+      } else {
+        precisionMultiplier = 0.5 // Touché le bord x0.5
+        hitZone = 'edge'
+      }
 
-    console.log(`💥 Cible touchée! Zone: ${hitZone} | Distance: ${distanceToCenter.toFixed(3)}m | Points: ${finalPoints} | HP restants: ${this.currentHp}`)
+      const finalPoints = Math.floor(this.data.points * precisionMultiplier)
 
-    // Jouer le son de hit
-    const hitSound = document.getElementById('hit-sound')
-    if (hitSound) {
-      hitSound.currentTime = 0
-      hitSound.play().catch(e => console.log('Son de hit non disponible:', e))
-    }
+      console.log(`💥 Cible touchée! Zone: ${hitZone} | Distance: ${distanceToCenter.toFixed(3)}m | Points: ${finalPoints} | HP restants: ${this.currentHp}`)
 
-    // Animations de feedback
-    this.playHitAnimation(hitZone)
-    this.showHitFeedback(localImpact, finalPoints, hitZone)
+      // Jouer le son de hit
+      try {
+        const hitSound = document.getElementById('hit-sound')
+        if (hitSound) {
+          hitSound.currentTime = 0
+          hitSound.play().catch(e => console.log('Son de hit non disponible:', e))
+        }
+      } catch (e) {
+        console.error('Sound play error:', e)
+      }
 
-    // Émettre un événement de score au système de jeu
-    this.el.sceneEl.emit('target-hit', {
-      points: finalPoints,
-      zone: hitZone,
-      multiplier: precisionMultiplier,
-      position: this.el.object3D.position,
-      distanceToCenter: distanceToCenter
-    })
+      // Animations de feedback
+      this.playHitAnimation(hitZone)
+      this.showHitFeedback(localImpact, finalPoints, hitZone)
 
-    // Détruire la cible si HP = 0
-    if (this.currentHp <= 0) {
-      this.destroy(finalPoints)
+      // Émettre un événement de score au système de jeu
+      try {
+        this.el.sceneEl.emit('target-hit', {
+          points: finalPoints,
+          zone: hitZone,
+          multiplier: precisionMultiplier,
+          position: this.el.object3D.position,
+          distanceToCenter: distanceToCenter
+        })
+      } catch (e) {
+        console.error('Event emission error:', e)
+      }
+
+      // Détruire la cible si HP = 0
+      if (this.currentHp <= 0) {
+        this.destroy(finalPoints)
+      }
+    } catch (e) {
+      console.error('onArrowHit error:', e)
     }
   },
 
   playHitAnimation: function (zone) {
-    // Animation de pulsation selon la zone touchée
-    let scaleTo = '1.1 1.1 1.1'
-    let color = '#FFFF00'
-    
-    if (zone === 'bullseye') {
-      scaleTo = '1.3 1.3 1.3'
-      color = '#FFD700' // Or
-    } else if (zone === 'middle') {
-      scaleTo = '1.2 1.2 1.2'
-      color = '#FFA500' // Orange
+    // Animation simplifiée sans utiliser A-Frame animation component
+    // qui peut causer des erreurs clipAction
+    try {
+      const scale = zone === 'bullseye' ? 1.3 : zone === 'middle' ? 1.2 : 1.1
+      const originalScale = this.el.getAttribute('scale')
+      
+      this.el.setAttribute('scale', `${originalScale.x * scale} ${originalScale.y * scale} ${originalScale.z * scale}`)
+      
+      // Revenir à l'échelle originale après 150ms
+      setTimeout(() => {
+        this.el.setAttribute('scale', originalScale)
+      }, 150)
+    } catch (e) {
+      console.error('Hit animation error:', e)
     }
-
-    this.el.setAttribute('animation__hit', {
-      property: 'scale',
-      to: scaleTo,
-      dur: 150,
-      dir: 'alternate',
-      easing: 'easeInOutQuad'
-    })
-
-    // Flash de couleur sur tous les cylindres enfants
-    const cylinders = this.el.querySelectorAll('[geometry="primitive: cylinder"]')
-    cylinders.forEach((cyl, index) => {
-      cyl.setAttribute(`animation__color${index}`, {
-        property: 'material.color',
-        to: color,
-        dur: 200,
-        dir: 'alternate'
-      })
-    })
   },
 
   showHitFeedback: function (localPosition, points, zone) {
-    // Créer un texte flottant avec les points
-    const feedback = document.createElement('a-text')
-    const worldPos = this.el.object3D.localToWorld(localPosition.clone())
+    // Feedback simple sans animation complexe
+    console.log(`✓ Hit feedback: +${points} points in ${zone} zone`)
     
-    let text = `+${points}`
-    let color = '#FFFF00'
-    
-    if (zone === 'bullseye') {
-      text = `🎯 +${points}!`
-      color = '#FFD700'
-    } else if (zone === 'middle') {
-      text = `+${points}`
-      color = '#FFA500'
-    }
-    
-    feedback.setAttribute('value', text)
-    feedback.setAttribute('position', `${worldPos.x} ${worldPos.y + 0.3} ${worldPos.z}`)
-    feedback.setAttribute('align', 'center')
-    feedback.setAttribute('color', color)
-    feedback.setAttribute('width', '2')
-    feedback.setAttribute('animation', {
-      property: 'position',
-      to: `${worldPos.x} ${worldPos.y + 0.8} ${worldPos.z}`,
-      dur: 1000,
-      easing: 'easeOutQuad'
-    })
-    feedback.setAttribute('animation__fade', {
-      property: 'material.opacity',
-      from: 1,
-      to: 0,
-      dur: 1000,
-      easing: 'easeInQuad'
-    })
-    
-    this.el.sceneEl.appendChild(feedback)
-    
-    // Supprimer après l'animation
-    setTimeout(() => {
-      if (feedback.parentNode) {
-        feedback.parentNode.removeChild(feedback)
-      }
-    }, 1100)
+    // On peut ajouter d'autres feedback ici si nécessaire
+    // Feedback haptique ou sonore serait plus fiable qu'une animation
   },
 
   destroy: function (lastPoints) {
     console.log('🎉 Cible détruite!')
     
-    // Animation de destruction
-    this.el.setAttribute('animation__destroy', {
-      property: 'scale',
-      to: '0 0 0',
-      dur: 400,
-      easing: 'easeInQuad'
-    })
-
-    // Rotation pendant la destruction
-    this.el.setAttribute('animation__spin', {
-      property: 'rotation',
-      to: '0 360 0',
-      dur: 400,
-      easing: 'easeInQuad'
-    })
+    try {
+      // Animation de destruction simplifiée
+      let elapsed = 0
+      const duration = 400
+      const startScale = this.el.getAttribute('scale')
+      const startRotation = this.el.getAttribute('rotation')
+      
+      const animateDestroy = () => {
+        elapsed += 16
+        const progress = Math.min(elapsed / duration, 1)
+        
+        // Scale to 0
+        this.el.setAttribute('scale', `${startScale.x * (1 - progress)} ${startScale.y * (1 - progress)} ${startScale.z * (1 - progress)}`)
+        
+        // Rotation
+        this.el.setAttribute('rotation', `${startRotation.x} ${startRotation.y + (progress * 360)} ${startRotation.z}`)
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateDestroy)
+        }
+      }
+      
+      animateDestroy()
+    } catch (e) {
+      console.error('Destroy animation error:', e)
+    }
 
     // Émettre événement de destruction
-    this.el.sceneEl.emit('target-destroyed', {
-      points: this.data.points,
-      totalHits: this.hitCount,
-      bonusPoints: Math.floor(lastPoints * 0.5)
-    })
+    try {
+      this.el.sceneEl.emit('target-destroyed', {
+        points: this.data.points,
+        totalHits: this.hitCount,
+        bonusPoints: Math.floor(lastPoints * 0.5)
+      })
+    } catch (e) {
+      console.error('Event emission error:', e)
+    }
 
     // Supprimer après l'animation
     setTimeout(() => {
@@ -204,19 +184,30 @@ AFRAME.registerComponent('target-behavior', {
   },
 
   setupMovement: function () {
-    // Mouvement oscillant pour les cibles mobiles
-    const randomOffset = Math.random() * Math.PI * 2
-    const basePos = this.el.getAttribute('position')
-    
-    this.el.setAttribute('animation__move', {
-      property: 'position',
-      to: `${basePos.x + Math.sin(randomOffset) * 1.5} ${basePos.y + Math.cos(randomOffset) * 0.5} ${basePos.z + Math.sin(randomOffset * 0.5) * 1}`,
-      dur: 4000,
-      dir: 'alternate',
-      loop: true,
-      easing: 'easeInOutSine'
-    })
-    
-    console.log('🎯 Cible mobile activée')
+    // Mouvement oscillant pour les cibles mobiles (manuelle, sans A-Frame animation)
+    try {
+      const basePos = this.el.getAttribute('position')
+      const speed = 0.002
+      let time = 0
+      
+      const moveInterval = setInterval(() => {
+        if (!this.el.parentNode) {
+          clearInterval(moveInterval)
+          return
+        }
+        
+        time += 16
+        const offsetX = Math.sin(time * speed) * 1.5
+        const offsetY = Math.cos(time * speed) * 0.5
+        const offsetZ = Math.sin(time * speed * 0.5) * 1
+        
+        this.el.setAttribute('position', `${basePos.x + offsetX} ${basePos.y + offsetY} ${basePos.z + offsetZ}`)
+      }, 16)
+      
+      this.moveInterval = moveInterval
+      console.log('🎯 Cible mobile activée')
+    } catch (e) {
+      console.error('Movement error:', e)
+    }
   }
 })

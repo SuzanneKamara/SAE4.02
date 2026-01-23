@@ -138,18 +138,27 @@ AFRAME.registerComponent('arrow-physics', {
     // Retirer la flèche après 5 secondes
     setTimeout(() => {
       if (this.el && this.el.parentNode) {
-        // Animation de disparition
-        this.el.setAttribute('animation', {
-          property: 'scale',
-          to: '0 0 0',
-          dur: 500,
-          easing: 'easeInQuad'
-        })
-        setTimeout(() => {
-          if (this.el && this.el.parentNode) {
-            this.el.parentNode.removeChild(this.el)
+        // Animation de disparition manuelle
+        let elapsed = 0
+        const duration = 500
+        const startScale = this.el.getAttribute('scale')
+        
+        const animateRemove = () => {
+          elapsed += 16
+          const progress = Math.min(elapsed / duration, 1)
+          const scale = startScale.x * (1 - progress)
+          this.el.setAttribute('scale', `${scale} ${scale} ${scale}`)
+          
+          if (progress < 1) {
+            requestAnimationFrame(animateRemove)
+          } else {
+            if (this.el && this.el.parentNode) {
+              this.el.parentNode.removeChild(this.el)
+            }
           }
-        }, 500)
+        }
+        
+        animateRemove()
       }
     }, 5000)
   }

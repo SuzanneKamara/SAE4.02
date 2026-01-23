@@ -7,6 +7,37 @@
     <title>SAE4.02 - Archery XR</title>
   </head>
   <body>
+    <!-- Debug Panel -->
+    <div id="debug-panel" style="
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #0f0;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      border: 2px solid #0f0;
+      border-radius: 5px;
+      z-index: 9999;
+      max-width: 350px;
+      line-height: 1.4;
+      max-height: 400px;
+      overflow-y: auto;
+    ">
+      <div style="font-weight: bold; margin-bottom: 5px;">🔍 DEBUG VR</div>
+      <div id="debug-gamepad">Gamepads: --</div>
+      <div id="debug-trigger">Trigger: OFF</div>
+      <div id="debug-thumbstick">Thumbstick: OFF</div>
+      <div id="debug-raycast">Raycast: --</div>
+      <div id="debug-targets">Targets: 0</div>
+      <div id="debug-fps" style="margin-top: 5px; border-top: 1px solid #0f0; padding-top: 5px;">FPS: --</div>
+      <div id="debug-errors" style="margin-top: 5px; border-top: 1px solid #f00; padding-top: 5px; color: #f00;">
+        <div style="color: #0f0;">Erreurs:</div>
+        <div id="error-list" style="max-height: 150px; overflow-y: auto;"></div>
+      </div>
+    </div>
+
     <!-- State management avec aframe-state-component -->
     <a-scene 
       state="score: 0; combo: 0; multiplier: 1.0; gameStarted: false"
@@ -105,5 +136,67 @@
 
 
     <script type="module" src="/src/main.js"></script>
+    
+    <!-- Script de débogage FPS et Erreurs -->
+    <script>
+      let frameCount = 0
+      let lastTime = Date.now()
+      const errorLog = []
+      
+      // Capture les erreurs avec numéro de ligne
+      window.addEventListener('error', (e) => {
+        const line = e.lineno || '?'
+        const col = e.colno || '?'
+        const msg = `❌ Line ${line}:${col} - ${e.message}`
+        errorLog.unshift(msg)
+        if (errorLog.length > 15) errorLog.pop()
+        updateErrorDisplay()
+        console.error(`[${line}:${col}]`, e.message, e)
+      })
+      
+      // Capture les erreurs de promesse
+      window.addEventListener('unhandledrejection', (e) => {
+        const msg = `❌ Promise: ${e.reason}`
+        errorLog.unshift(msg)
+        if (errorLog.length > 15) errorLog.pop()
+        updateErrorDisplay()
+        console.error('Unhandled rejection:', e)
+      })
+      
+      // Monkey-patch console.error pour capturer aussi les erreurs loggées
+      const originalError = console.error
+      console.error = function(...args) {
+        const msg = `❌ ${args.join(' ')}`
+        errorLog.unshift(msg)
+        if (errorLog.length > 15) errorLog.pop()
+        updateErrorDisplay()
+        originalError.apply(console, args)
+      }
+      
+      function updateErrorDisplay() {
+        const errorList = document.getElementById('error-list')
+        if (errorList) {
+          errorList.innerHTML = errorLog.map(e => `<div>${e}</div>`).join('')
+        }
+      }
+      
+      function updateDebug() {
+        frameCount++
+        const now = Date.now()
+        const elapsed = now - lastTime
+        
+        if (elapsed >= 1000) {
+          const fps = Math.round((frameCount * 1000) / elapsed)
+          const fpsEl = document.getElementById('debug-fps')
+          if (fpsEl) fpsEl.textContent = `FPS: ${fps}`
+          frameCount = 0
+          lastTime = now
+        }
+        
+        requestAnimationFrame(updateDebug)
+      }
+      
+      updateDebug()
+    </script>
   </body>
 </html>

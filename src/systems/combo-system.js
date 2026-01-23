@@ -89,23 +89,42 @@ AFRAME.registerSystem('combo-system', {
     feedback.setAttribute('align', 'center')
     feedback.setAttribute('color', color)
     feedback.setAttribute('width', '4')
-    feedback.setAttribute('animation', {
-      property: 'scale',
-      from: '0.5 0.5 0.5',
-      to: '1.5 1.5 1.5',
-      dur: 500,
-      easing: 'easeOutElastic'
-    })
-    feedback.setAttribute('animation__fade', {
-      property: 'material.opacity',
-      from: 1,
-      to: 0,
-      dur: 1500,
-      delay: 500,
-      easing: 'easeInQuad'
-    })
     
+    // Animation manuelle au lieu d'utiliser A-Frame animation component
     this.el.appendChild(feedback)
+    
+    let elapsed = 0
+    const scaleDuration = 500
+    const fadeDuration = 1500
+    
+    const animateFeedback = () => {
+      elapsed += 16
+      
+      // Scale animation (0-500ms)
+      if (elapsed <= scaleDuration) {
+        const progress = elapsed / scaleDuration
+        const easeOutElastic = progress === 1 ? 1 : Math.pow(2, -10 * progress) * Math.sin((progress * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1
+        const scale = 0.5 + (1.5 - 0.5) * easeOutElastic
+        feedback.setAttribute('scale', `${scale} ${scale} ${scale}`)
+      } else {
+        feedback.setAttribute('scale', '1.5 1.5 1.5')
+      }
+      
+      // Fade animation (500-2000ms)
+      if (elapsed > 500) {
+        const fadeProgress = (elapsed - 500) / fadeDuration
+        if (fadeProgress <= 1) {
+          const opacity = 1 - fadeProgress
+          feedback.setAttribute('material', `opacity: ${opacity}`)
+        }
+      }
+      
+      if (elapsed < fadeDuration + 500) {
+        requestAnimationFrame(animateFeedback)
+      }
+    }
+    
+    requestAnimationFrame(animateFeedback)
     
     setTimeout(() => {
       if (feedback.parentNode) {
