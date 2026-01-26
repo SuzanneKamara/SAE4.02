@@ -19,9 +19,6 @@ AFRAME.registerComponent('bow-logic', {
     // Créer le laser visuel pour le VR
     this.createLaserBeam()
     
-    // Créer le viseur pour viser
-    this.createCrosshair()
-    
     // Écouteurs d'événements pour les contrôleurs VR
     this.el.addEventListener('triggerdown', this.shootArrow.bind(this))
     this.el.addEventListener('trigger-start', this.shootArrow.bind(this))
@@ -85,100 +82,6 @@ AFRAME.registerComponent('bow-logic', {
     this.endSphere = endSphere
     
     console.log('✅ LASER avec 20 GROSSES sphères créé')
-  },
-
-  createCrosshair: function() {
-    // Créer un viseur attaché à la caméra
-    const camera = document.querySelector('[camera]')
-    if (!camera) {
-      console.warn('Caméra non trouvée pour le viseur')
-      return
-    }
-    
-    // Groupe pour le viseur
-    const crosshairGroup = document.createElement('a-entity')
-    crosshairGroup.setAttribute('id', 'crosshair-group')
-    crosshairGroup.setAttribute('position', '0 0 -2')  // 2m devant la caméra
-    
-    // Cercle extérieur du viseur
-    const outerRing = document.createElement('a-ring')
-    outerRing.setAttribute('id', 'crosshair-outer')
-    outerRing.setAttribute('radius-inner', '0.04')
-    outerRing.setAttribute('radius-outer', '0.05')
-    outerRing.setAttribute('color', '#00ff00')
-    outerRing.setAttribute('material', 'shader: flat; opacity: 0.8; transparent: true')
-    crosshairGroup.appendChild(outerRing)
-    
-    // Point central du viseur
-    const centerDot = document.createElement('a-circle')
-    centerDot.setAttribute('id', 'crosshair-center')
-    centerDot.setAttribute('radius', '0.01')
-    centerDot.setAttribute('color', '#ff0000')
-    centerDot.setAttribute('material', 'shader: flat; opacity: 1.0')
-    crosshairGroup.appendChild(centerDot)
-    
-    // Lignes horizontales et verticales
-    const lineH = document.createElement('a-plane')
-    lineH.setAttribute('width', '0.1')
-    lineH.setAttribute('height', '0.005')
-    lineH.setAttribute('color', '#00ff00')
-    lineH.setAttribute('material', 'shader: flat; opacity: 0.8; transparent: true')
-    crosshairGroup.appendChild(lineH)
-    
-    const lineV = document.createElement('a-plane')
-    lineV.setAttribute('width', '0.005')
-    lineV.setAttribute('height', '0.1')
-    lineV.setAttribute('color', '#00ff00')
-    lineV.setAttribute('material', 'shader: flat; opacity: 0.8; transparent: true')
-    crosshairGroup.appendChild(lineV)
-    
-    camera.appendChild(crosshairGroup)
-    this.crosshairGroup = crosshairGroup
-    this.crosshairOuter = outerRing
-    this.crosshairCenter = centerDot
-    
-    console.log('✅ Viseur créé et attaché à la caméra')
-  },
-
-  updateCrosshair: function() {
-    if (!this.crosshairOuter) return
-    
-    // Changer la couleur du viseur selon si on vise une cible
-    const scene = this.el.sceneEl
-    const camera = scene.camera
-    
-    if (!camera) return
-    
-    // Créer un raycast depuis la caméra
-    const raycaster = new THREE.Raycaster()
-    const cameraPos = new THREE.Vector3()
-    const cameraQuat = new THREE.Quaternion()
-    
-    camera.getWorldPosition(cameraPos)
-    camera.getWorldQuaternion(cameraQuat)
-    
-    const forward = new THREE.Vector3(0, 0, -1)
-    forward.applyQuaternion(cameraQuat)
-    
-    raycaster.set(cameraPos, forward)
-    
-    // Vérifier si on vise une cible
-    const targets = Array.from(scene.querySelectorAll('[target-behavior]'))
-    
-    if (targets.length > 0) {
-      const targetObjects = targets.map(t => t.object3D)
-      const intersects = raycaster.intersectObjects(targetObjects, true)
-      
-      if (intersects.length > 0) {
-        // Viseur ROUGE quand on vise une cible
-        this.crosshairOuter.setAttribute('color', '#ff0000')
-        this.crosshairCenter.setAttribute('color', '#ffff00')
-      } else {
-        // Viseur VERT quand on ne vise rien
-        this.crosshairOuter.setAttribute('color', '#00ff00')
-        this.crosshairCenter.setAttribute('color', '#ff0000')
-      }
-    }
   },
 
   addLog: function(msg) {
@@ -252,15 +155,15 @@ AFRAME.registerComponent('bow-logic', {
     }
   },
 
-  tick: function() {
+  tick: function(time, timeDelta) {
     // Vérifier les gamepads WebXR/VR
     const gamepads = navigator.getGamepads()
     
     // Update laser beam direction
     this.updateLaserBeam()
     
-    // Update crosshair color
-    this.updateCrosshair()
+    // Mettre à jour toutes les flèches en vol
+    this.updateFlyingArrows(timeDelta)
     
     // Update debug panel
     const debugPanel = document.getElementById('debug-panel')
@@ -338,6 +241,47 @@ AFRAME.registerComponent('bow-logic', {
     }
   },
 
+  updateFlyingArrows: function(timeDelta) {
+    const scene = this.el.sceneEl
+    if (!scene) return
+    
+    // Utiliser un delta fixe si timeDelta est invalide
+    const deltaSeconds = (timeDelta && timeDelta > 0) ? timeDelta / 1000 : 0.016
+    
+    // Trouver toutes les flèches en vol
+    const arrows = scene.querySelectorAll('[gltf-model="#arrow-model"]')
+    
+    arrows.forEach(arrow => {
+      if (!arrow.arrowData) return
+      
+      const data = arrow.arrowData
+      const elapsed = Date.now() - data.startTime
+      
+      // Supprimer après 5 secondes
+      if (elapsed > data.maxTime) {
+        if (arrow.parentNode) {
+          arrow.parentNode.removeChild(arrow)
+        }
+        return
+      }
+      
+      // Récupérer la position actuelle
+      const currentPos = arrow.getAttribute('position')
+      
+      // Calculer la nouvelle position
+      const newX = currentPos.x + data.velocity.x * deltaSeconds
+      const newY = currentPos.y + data.velocity.y * deltaSeconds
+      const newZ = currentPos.z + data.velocity.z * deltaSeconds
+      
+      // Mettre à jour la position
+      arrow.setAttribute('position', `${newX} ${newY} ${newZ}`)
+      
+      // Vérifier collision avec la nouvelle position
+      const newPos = new THREE.Vector3(newX, newY, newZ)
+      this.checkArrowCollision(arrow, newPos)
+    })
+  },
+
   shootArrow: function () {
     console.log('🏹 shootArrow() CALLED - Bow is on:', this.el.id)
     this.addLog('🏹 shootArrow() appelé')
@@ -379,94 +323,8 @@ AFRAME.registerComponent('bow-logic', {
       const forward = new THREE.Vector3(0, -1, 0)  // Demi-tour: axe Y négatif
       forward.applyQuaternion(handRot)
       
-      // Créer un raycaster
-      this.raycaster.set(handPos, forward)
-      
-      // Détecter les cibles
-      const scene = this.el.sceneEl
-      if (!scene) {
-        this.addLog('❌ Scene not found')
-        return
-      }
-      
-      const allEntities = scene.querySelectorAll('[target-behavior]')
-      const targets = Array.from(allEntities)
-      
-      // Update debug panel
-      const targetsEl = document.getElementById('debug-targets')
-      if (targetsEl) targetsEl.textContent = `Targets: ${targets.length}`
-      
-      if (targets.length === 0) {
-        console.log('❌ Aucune cible détectée')
-        const raycastEl = document.getElementById('debug-raycast')
-        if (raycastEl) raycastEl.textContent = 'Raycast: NO TARGETS'
-        this.addLog('❌ Aucune cible trouvée')
-        return
-      }
-      
-      this.addLog(`🎯 ${targets.length} cibles détectées`)
-      
-      // Intersections avec les cibles
-      const targetObjects = targets.map(t => t.object3D)
-      const intersects = this.raycaster.intersectObjects(targetObjects, true)
-      
-      this.addLog(`🔍 Raycast intersections: ${intersects.length}`)
-      
-      if (intersects.length > 0) {
-        this.addLog(`✓ Raycast hit: ${intersects.length} intersection(s)`)
-        
-        // Première cible touchée
-        const hitObject = intersects[0].object
-        let targetEntity = null
-        
-        // Trouver l'entité A-Frame correspondante en cherchant le parent
-        for (let target of targets) {
-          let current = hitObject
-          let depth = 0
-          while (current && depth < 20) {
-            if (current === target.object3D) {
-              targetEntity = target
-              break
-            }
-            current = current.parent
-            depth++
-          }
-          if (targetEntity) break
-        }
-        
-        // Fallback: chercher par proximité
-        if (!targetEntity) {
-          this.addLog('⚠️ Using fallback target')
-          targetEntity = targets[0]
-        }
-        
-        // Appeler le système de dommage de la cible
-        if (targetEntity) {
-          if (!targetEntity.components) {
-            this.addLog('❌ Target has no components')
-            return
-          }
-          
-          if (!targetEntity.components['target-behavior']) {
-            this.addLog('❌ Target missing target-behavior component')
-            return
-          }
-          
-          const impactPoint = intersects[0].point
-          targetEntity.components['target-behavior'].onArrowHit(null, impactPoint)
-          console.log('💥 Cible touchée!')
-          const raycastEl = document.getElementById('debug-raycast')
-          if (raycastEl) raycastEl.textContent = 'Raycast: HIT ✓'
-          this.addLog('✓ Cible touchée et points ajoutés!')
-        } else {
-          this.addLog('❌ Could not find target entity')
-        }
-      } else {
-        console.log('❌ Pas de cible en ligne de mire')
-        const raycastEl = document.getElementById('debug-raycast')
-        if (raycastEl) raycastEl.textContent = 'Raycast: NO HIT'
-        this.addLog('❌ Pas de cible en ligne')
-      }
+      // CRÉER UNE FLÈCHE PHYSIQUE
+      this.createFlyingArrow(handPos, forward, handRot)
       
       // Feedback haptique désactivé (non supporté de manière fiable)
       // Utiliser le son et les animations visuelles à la place
@@ -540,6 +398,58 @@ AFRAME.registerComponent('bow-logic', {
       }
     } else {
       console.log('❌ Pas de cible en ligne de mire')
+    }
+  },
+
+  createFlyingArrow: function(startPos, direction, rotation) {
+    const scene = this.el.sceneEl
+    
+    // Créer l'entité flèche
+    const arrow = document.createElement('a-entity')
+    arrow.setAttribute('gltf-model', '#arrow-model')
+    arrow.setAttribute('scale', '0.5 0.5 0.5')
+    arrow.setAttribute('position', `${startPos.x} ${startPos.y} ${startPos.z}`)
+    
+    // Orienter la flèche dans la direction du tir
+    const euler = new THREE.Euler()
+    euler.setFromQuaternion(rotation)
+    arrow.setAttribute('rotation', `${THREE.MathUtils.radToDeg(euler.x) + 180} ${THREE.MathUtils.radToDeg(euler.y)} ${THREE.MathUtils.radToDeg(euler.z)}`)
+    
+    // Ajouter à la scène
+    scene.appendChild(arrow)
+    
+    // Stocker les données de vol sur l'élément
+    arrow.arrowData = {
+      velocity: direction.clone().multiplyScalar(this.data.arrowSpeed),
+      startTime: Date.now(),
+      maxTime: 5000 // 5 secondes
+    }
+    
+    this.addLog('🏹 Flèche lancée!')
+  },
+  
+  checkArrowCollision: function(arrow, arrowPos) {
+    const scene = this.el.sceneEl
+    const targets = Array.from(scene.querySelectorAll('[target-behavior]'))
+    
+    for (let target of targets) {
+      const targetPos = target.object3D.position
+      const distance = arrowPos.distanceTo(targetPos)
+      
+      // Distance de collision
+      if (distance < 0.5) {
+        // Touché !
+        if (target.components && target.components['target-behavior']) {
+          target.components['target-behavior'].onArrowHit(null, arrowPos)
+          this.addLog('✓ Flèche a touché la cible!')
+        }
+        
+        // Supprimer la flèche
+        if (arrow.parentNode) {
+          arrow.parentNode.removeChild(arrow)
+        }
+        break
+      }
     }
   },
 

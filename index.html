@@ -5,8 +5,43 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SAE4.02 - Archery XR</title>
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      a-scene {
+        background: transparent !important;
+      }
+      #xr-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 20px 40px;
+        font-size: 24px;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        z-index: 10000;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        font-family: Arial, sans-serif;
+        transition: all 0.3s ease;
+      }
+      #xr-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      }
+      #xr-button:active {
+        transform: scale(0.95);
+      }
+    </style>
   </head>
   <body>
+    <button id="xr-button">🥽 ENTRER EN XR</button>
     <!-- Debug Panel -->
     <div id="debug-panel" style="
       position: fixed;
@@ -41,28 +76,25 @@
     <!-- State management avec aframe-state-component -->
     <a-scene 
       state="score: 0; combo: 0; multiplier: 1.0; gameStarted: false"
-      webxr="requiredFeatures: local-floor; optionalFeatures: hit-test,anchors,hand-tracking;"
+      webxr="referenceSpaceType: local; requiredFeatures: hand-tracking; optionalFeatures: hit-test,anchors,layers,depth-sensing,dom-overlay;"
+      renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true; antialias: true;"
+      vr-mode-ui="enabled: true"
+      embedded
       game-manager
       combo-system>
       <!-- Assets -->
       <a-assets>
         <a-asset-item id="bow-model" src="/bow.glb"></a-asset-item>
         <a-asset-item id="target-model" src="/target.glb"></a-asset-item>
+        <a-asset-item id="arrow-model" src="/arrow.glb"></a-asset-item>
         <audio id="background-sound" src="/son/song-background.mp3" crossorigin="anonymous" loop></audio>
         <audio id="hit-sound" src="/son/arrow.mp3" crossorigin="anonymous"></audio>
         <audio id="shoot-sound" src="/son/tir_arc.mp3" crossorigin="anonymous"></audio>
       </a-assets>
       
-      <!-- Environnement -->
-      <a-entity environment="preset: forest; dressingAmount: 500"></a-entity>
-      
-      <!-- Lumière -->
-      <a-entity light="type: ambient; color: #BBB"></a-entity>
-      <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-0.5 1 1"></a-entity>
-      
-      <!-- Sol (invisible mais interactif) -->
-      <a-plane position="0 0 -4" rotation="-90 0 0" width="50" height="50"
-           material="transparent: true; opacity: 0"></a-plane>
+      <!-- Lumières pour éclairer les objets AR -->
+      <a-entity light="type: ambient; color: #FFF; intensity: 1.0"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.8" position="-0.5 1 1"></a-entity>
            
       <!-- Scene Mesh Handler pour WebXR -->
       <a-entity scene-mesh-handler></a-entity>
@@ -119,26 +151,52 @@
               position="0 2.5 -4" align="center" color="#FFF" width="6"></a-text> -->
     </a-scene>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     <script type="module" src="/src/main.js"></script>
     
-    <!-- Script de débogage FPS et Erreurs -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const xrButton = document.getElementById('xr-button');
+        const scene = document.querySelector('a-scene');
+        
+        xrButton.addEventListener('click', async () => {
+          try {
+            if (!navigator.xr) {
+              alert('WebXR non supporté sur cet appareil');
+              return;
+            }
+            
+            const arSupported = await navigator.xr.isSessionSupported('immersive-ar');
+            const vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
+            
+            if (arSupported) {
+              console.log('Lancement du mode AR...');
+              xrButton.textContent = 'Lancement AR...';
+              scene.enterAR();
+            } else if (vrSupported) {
+              console.log('Lancement du mode VR...');
+              xrButton.textContent = 'Lancement VR...';
+              scene.enterVR();
+            } else {
+              alert('Aucun mode XR supporté sur cet appareil');
+            }
+          } catch (error) {
+            console.error('Erreur XR:', error);
+            alert('Erreur lors du lancement XR: ' + error.message);
+            xrButton.textContent = '🥽 ENTRER EN XR';
+          }
+        });
+        
+        scene.addEventListener('enter-vr', () => {
+          xrButton.style.display = 'none';
+        });
+        
+        scene.addEventListener('exit-vr', () => {
+          xrButton.style.display = 'block';
+          xrButton.textContent = '🥽 ENTRER EN XR';
+        });
+      });
+    </script>
+    
     <script>
       let frameCount = 0
       let lastTime = Date.now()
