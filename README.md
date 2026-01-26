@@ -1,4 +1,4 @@
-On a changer de git : https://github.com/Ethan-Lochis/SAE-402
+On a changé de git : https://github.com/Ethan-Lochis/SAE-402
 
 
 # SAE4.02 - Jeu de Tir à l'Arc en Réalité Étendue
